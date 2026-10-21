@@ -1,6 +1,6 @@
 # Customer Feedback System
 
-A Java Swing desktop application for product feedback, backed by MySQL-compatible TiDB Cloud through MySQL Connector/J. Customers can register, sign in, browse products, submit ratings and comments, and follow administrator responses. Administrators can search and filter customer feedback, respond to or delete feedback, and review product statistics.
+A Java Swing desktop application for product feedback, backed by MySQL-compatible TiDB Cloud through MySQL Connector/J. Customers can register, sign in, browse products, submit ratings and comments, and follow administrator responses. Administrators can search and filter customer feedback, respond to or delete feedback if they are inappropriate, and review product statistics.
 
 The desktop UI includes a database-backed dashboard, sortable feedback tables, date/rating/product filters, analytics, CSV export, connection status, and account settings. It uses only Swing and Java 8 APIs; no extra UI/chart dependency is required.
 
