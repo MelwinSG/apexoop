@@ -1,6 +1,6 @@
 # Customer Feedback System
 
-A console-based Java application for product feedback. Customers can register, sign in, view products, rate and comment on products, and search their feedback and administrator replies. Administrators can review, search, filter, delete and respond to feedback, and view product rating statistics. Application data is persisted in MySQL.
+A Java Swing application for product feedback. Customers can register, sign in, view products, rate and comment on products, and search their feedback and administrator replies. Administrators can review, search, filter, delete and respond to feedback, and view product rating statistics. Application data is persisted in MySQL.
 
 ## Features
 
@@ -35,21 +35,29 @@ Feedback references users and products with foreign keys. Deleting feedback casc
 
 ## Setup (Windows)
 
-Prerequisites: JDK 8 or newer, MySQL 8.0 running, and the MySQL Connector/J jar in `lib/`.
+Prerequisites: JDK 8 or newer, the MySQL Connector/J jar in `lib/`, and either a running MySQL server or a TiDB Cloud cluster.
 
-1. Create the database and tables from PowerShell:
-
-   ```powershell
-   Get-Content sql\schema.sql | mysql -u root -p
-   ```
-
-2. Copy the example settings and edit the local credentials. `db.properties` is ignored by Git:
+1. Copy the example settings and edit them for the database server you will use. `db.properties` is ignored by Git. The example targets local MySQL; the application and schema must both use the same server:
 
    ```powershell
    Copy-Item db.properties.example db.properties
    ```
 
-   `DB_URL`, `DB_USER`, and `DB_PASSWORD` environment variables can be used instead; each overrides the corresponding property.
+   For local MySQL, keep the example URL (`jdbc:mysql://localhost:3306/feedback_db`). For TiDB Cloud, set `db.url` to the cluster's JDBC URL, `db.user` to the cluster username, and `db.password` to the cluster password. The URL must include TLS verification, for example `?sslMode=VERIFY_IDENTITY`. `DB_URL`, `DB_USER`, and `DB_PASSWORD` environment variables can be used instead; each overrides the corresponding property.
+
+2. Create the database and tables on that same server. For local MySQL:
+
+   ```powershell
+   Get-Content sql\schema.sql | mysql -u root -p
+   ```
+
+   For TiDB Cloud, substitute your cluster host and database username:
+
+   ```powershell
+   Get-Content sql\schema.sql | mysql --host=<cluster-host> --port=4000 --user=<cluster-user> --password --ssl-mode=VERIFY_IDENTITY
+   ```
+
+   Use the same cluster credentials as in `db.properties`. The database user needs permission to create the database and tables.
 
 3. Compile and run from the repository root:
 
@@ -58,7 +66,7 @@ Prerequisites: JDK 8 or newer, MySQL 8.0 running, and the MySQL Connector/J jar 
    java -cp "out;lib\mysql-connector-j-26.7.0.jar" Main
    ```
 
-4. Register a regular account. To create the initial administrator, promote the chosen account using a MySQL administrator account:
+4. Register a regular account. To create the initial administrator, promote the chosen account using a database administrator account:
 
    ```sql
    USE feedback_db;
@@ -75,4 +83,4 @@ Prerequisites: JDK 8 or newer, MySQL 8.0 running, and the MySQL Connector/J jar 
 - Feedback and responses have server-side validation as well as database constraints.
 - Database credentials are not committed; keep the local `db.properties` private.
 
-The source follows the requested layout: `src\model`, `src\database`, and `src\service`, with `src\Main.java` as the console entry point. `Customer` and `Admin` extend `User`; the service layer handles JDBC operations; and `Feedback` includes an optional `Response`.
+The source follows the requested layout: `src\model`, `src\database`, and `src\service`, with `src\Main.java` as the Swing application entry point. `Customer` and `Admin` extend `User`; the service layer handles JDBC operations; and `Feedback` includes an optional `Response`.
