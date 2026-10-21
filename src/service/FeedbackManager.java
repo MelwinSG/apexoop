@@ -11,6 +11,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,14 +37,46 @@ public class FeedbackManager {
 
     public List<Feedback> listCustomerFeedback(Customer customer, String search, Long productId, Integer rating)
             throws SQLException {
+        return listCustomerFeedback(customer, search, productId, rating, null, null);
+    }
+
+    public List<Feedback> listCustomerFeedback(Customer customer, String search, Long productId, Integer rating,
+                                                LocalDate fromDate, LocalDate toDate) throws SQLException {
+        return listCustomerFeedback(customer, search, productId, rating, null, fromDate, toDate);
+    }
+
+    public List<Feedback> listCustomerFeedback(Customer customer, String search, Long productId, Integer rating,
+                                                String sentiment, LocalDate fromDate, LocalDate toDate)
+            throws SQLException {
         AuthService.requireCustomer(customer);
-        return queryFeedback(customer.getId(), search, productId, rating);
+        return queryFeedback(customer.getId(), search, productId, rating, sentiment, fromDate, toDate, null);
+    }
+
+    public List<Feedback> listRecentCustomerFeedback(Customer customer, int limit) throws SQLException {
+        AuthService.requireCustomer(customer);
+        return queryFeedback(customer.getId(), "", null, null, null, null, null, requireLimit(limit));
     }
 
     public List<Feedback> listAllFeedback(Admin admin, String search, Long productId, Integer rating)
             throws SQLException {
+        return listAllFeedback(admin, search, productId, rating, null, null);
+    }
+
+    public List<Feedback> listAllFeedback(Admin admin, String search, Long productId, Integer rating,
+                                          LocalDate fromDate, LocalDate toDate) throws SQLException {
+        return listAllFeedback(admin, search, productId, rating, null, fromDate, toDate);
+    }
+
+    public List<Feedback> listAllFeedback(Admin admin, String search, Long productId, Integer rating,
+                                          String sentiment, LocalDate fromDate, LocalDate toDate)
+            throws SQLException {
         AuthService.requireAdmin(admin);
-        return queryFeedback(null, search, productId, rating);
+        return queryFeedback(null, search, productId, rating, sentiment, fromDate, toDate, null);
+    }
+
+    public List<Feedback> listRecentFeedback(Admin admin, int limit) throws SQLException {
+        AuthService.requireAdmin(admin);
+        return queryFeedback(null, "", null, null, null, null, null, requireLimit(limit));
     }
 
     public void deleteFeedback(Admin admin, long feedbackId) throws SQLException {
@@ -75,7 +108,9 @@ public class FeedbackManager {
         }
     }
 
-    private List<Feedback> queryFeedback(Long customerId, String search, Long productId, Integer rating)
+    private List<Feedback> queryFeedback(Long customerId, String search, Long productId, Integer rating,
+                                         String sentiment,
+                                         LocalDate fromDate, LocalDate toDate, Integer limit)
             throws SQLException {
         StringBuilder sql = new StringBuilder(
                         "SELECT f.feedback_id, f.rating, f.comment_text, f.created_at, u.full_name AS customer_name, "
@@ -108,7 +143,37 @@ public class FeedbackManager {
             sql.append(" AND f.rating = ?");
             parameters.add(rating);
         }
+        if (sentiment != null && !sentiment.trim().isEmpty()) {
+            switch (sentiment.toLowerCase(java.util.Locale.ROOT)) {
+                case "positive":
+                    sql.append(" AND f.rating >= 4");
+                    break;
+                case "neutral":
+                    sql.append(" AND f.rating = 3");
+                    break;
+                case "negative":
+                    sql.append(" AND f.rating <= 2");
+                    break;
+                default:
+                    throw new IllegalArgumentException("Choose a valid sentiment filter.");
+            }
+        }
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new IllegalArgumentException("The start date must be on or before the end date.");
+        }
+        if (fromDate != null) {
+            sql.append(" AND f.created_at >= ?");
+            parameters.add(Timestamp.valueOf(fromDate.atStartOfDay()));
+        }
+        if (toDate != null) {
+            sql.append(" AND f.created_at < ?");
+            parameters.add(Timestamp.valueOf(toDate.plusDays(1).atStartOfDay()));
+        }
         sql.append(" ORDER BY f.created_at DESC");
+        if (limit != null) {
+            sql.append(" LIMIT ?");
+            parameters.add(limit);
+        }
 
         List<Feedback> feedbackList = new ArrayList<>();
         try (Connection connection = DBConnection.getConnection();
@@ -134,6 +199,13 @@ public class FeedbackManager {
             }
         }
         return feedbackList;
+    }
+
+    private static int requireLimit(int limit) {
+        if (limit < 1 || limit > 100) {
+            throw new IllegalArgumentException("Feedback limit must be between 1 and 100.");
+        }
+        return limit;
     }
 
     private static String requireText(String value, String label, int maxLength) {

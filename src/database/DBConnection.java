@@ -1,6 +1,7 @@
 package database;
 
 import java.io.FileInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -12,10 +13,13 @@ public class DBConnection {
     public static Connection getConnection() throws SQLException {
         Properties props = new Properties();
 
-        try (FileInputStream in = new FileInputStream("db.properties")) {
-            props.load(in);
-        } catch (IOException e) {
-            throw new SQLException("Could not read db.properties. Copy db.properties.example and configure it.", e);
+        File configFile = new File("db.properties");
+        if (configFile.exists()) {
+            try (FileInputStream in = new FileInputStream(configFile)) {
+                props.load(in);
+            } catch (IOException e) {
+                throw new SQLException("Could not read db.properties.", e);
+            }
         }
 
         String url = setting("DB_URL", "db.url", props);
@@ -23,7 +27,7 @@ public class DBConnection {
         String password = setting("DB_PASSWORD", "db.password", props);
 
         if (url == null || user == null || password == null) {
-            throw new SQLException("db.url, db.user, and db.password must be configured.");
+            throw new SQLException("Configure db.url, db.user, and db.password or set DB_URL, DB_USER, and DB_PASSWORD.");
         }
 
         return DriverManager.getConnection(url, user, password);

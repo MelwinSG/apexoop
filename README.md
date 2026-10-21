@@ -1,6 +1,8 @@
 # Customer Feedback System
 
-A Java Swing application for product feedback. Customers can register, sign in, view products, rate and comment on products, and search their feedback and administrator replies. Administrators can review, search, filter, delete and respond to feedback, and view product rating statistics. Application data is persisted in MySQL.
+A Java Swing desktop application for product feedback, backed by MySQL-compatible TiDB Cloud through MySQL Connector/J. Customers can register, sign in, browse products, submit ratings and comments, and follow administrator responses. Administrators can search and filter customer feedback, respond to or delete feedback, and review product statistics.
+
+The desktop UI includes a database-backed dashboard, sortable feedback tables, date/rating/product filters, analytics, CSV export, connection status, and account settings. It uses only Swing and Java 8 APIs; no extra UI/chart dependency is required.
 
 ## Features
 
@@ -33,17 +35,29 @@ Run `sql/schema.sql` to create the `feedback_db` database and its tables. The sc
 
 Feedback references users and products with foreign keys. Deleting feedback cascades to its response, while users/products referenced by feedback cannot be accidentally deleted. Three example products are inserted by the schema script.
 
+The existing schema does not store a feedback category or a separate email per feedback record. The interface therefore displays the linked product as the feedback category and uses the signed-in customer's name/email. Sentiment is derived from the existing rating: 4–5 positive, 3 neutral, and 1–2 negative. No schema change is needed.
+
 ## Setup (Windows)
 
 Prerequisites: JDK 8 or newer, the MySQL Connector/J jar in `lib/`, and either a running MySQL server or a TiDB Cloud cluster.
 
-1. Copy the example settings and edit them for the database server you will use. `db.properties` is ignored by Git. The example targets local MySQL; the application and schema must both use the same server:
+1. Configure the existing connection. `db.properties` is ignored by Git and remains a local-only configuration file. The example targets local MySQL; the application and schema must both use the same server:
 
    ```powershell
    Copy-Item db.properties.example db.properties
    ```
 
-   For local MySQL, keep the example URL (`jdbc:mysql://localhost:3306/feedback_db`). For TiDB Cloud, set `db.url` to the cluster's JDBC URL, `db.user` to the cluster username, and `db.password` to the cluster password. The URL must include TLS verification, for example `?sslMode=VERIFY_IDENTITY`. `DB_URL`, `DB_USER`, and `DB_PASSWORD` environment variables can be used instead; each overrides the corresponding property.
+   For local MySQL, keep the example URL (`jdbc:mysql://localhost:3306/feedback_db`). For TiDB Cloud, preserve your configured JDBC host, port, database, and TLS verification; use `sslMode=VERIFY_IDENTITY`. `DB_URL`, `DB_USER`, and `DB_PASSWORD` environment variables each override the corresponding property. Do not copy credentials into Java source or commit `db.properties`; environment variables are recommended when storing the password in a local file is undesirable.
+
+   To use session-only environment variables in the VS Code PowerShell terminal:
+
+   ```powershell
+   $env:DB_URL = "jdbc:mysql://<cluster-host>:4000/feedback_db?sslMode=VERIFY_IDENTITY"
+   $env:DB_USER = "<cluster-user>"
+   $env:DB_PASSWORD = "<cluster-password>"
+   ```
+
+   These values apply to programs launched from that terminal and are not written to the repository. The application can now use these variables even if `db.properties` is absent.
 
 2. Create the database and tables on that same server. For local MySQL:
 
@@ -59,12 +73,14 @@ Prerequisites: JDK 8 or newer, the MySQL Connector/J jar in `lib/`, and either a
 
    Use the same cluster credentials as in `db.properties`. The database user needs permission to create the database and tables.
 
-3. Compile and run from the repository root:
+3. Compile and run from the VS Code terminal opened at the repository root:
 
    ```powershell
    javac -cp "lib\mysql-connector-j-26.7.0.jar" -sourcepath src -d out src\Main.java
    java -cp "out;lib\mysql-connector-j-26.7.0.jar" Main
    ```
+
+   The app uses the existing Connector/J JAR in `lib/`; FlatLaf and chart libraries are not required.
 
 4. Register a regular account. To create the initial administrator, promote the chosen account using a database administrator account:
 
