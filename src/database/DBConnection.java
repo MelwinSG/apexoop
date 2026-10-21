@@ -15,13 +15,24 @@ public class DBConnection {
         try (FileInputStream in = new FileInputStream("db.properties")) {
             props.load(in);
         } catch (IOException e) {
-            throw new SQLException("Could not read db.properties: " + e.getMessage(), e);
+            throw new SQLException("Could not read db.properties. Copy db.properties.example and configure it.", e);
         }
 
-        String url = props.getProperty("db.url");
-        String user = props.getProperty("db.user");
-        String password = props.getProperty("db.password");
+        String url = setting("DB_URL", "db.url", props);
+        String user = setting("DB_USER", "db.user", props);
+        String password = setting("DB_PASSWORD", "db.password", props);
+
+        if (url == null || user == null || password == null) {
+            throw new SQLException("db.url, db.user, and db.password must be configured.");
+        }
 
         return DriverManager.getConnection(url, user, password);
+    }
+
+    private static String setting(String environmentName, String propertyName, Properties props) {
+        String environmentValue = System.getenv(environmentName);
+        return environmentValue == null || environmentValue.trim().isEmpty()
+                ? props.getProperty(propertyName)
+                : environmentValue;
     }
 }

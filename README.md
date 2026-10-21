@@ -1,120 +1,78 @@
 # Customer Feedback System
 
-A console-based Java application for collecting, storing and managing customer feedback about products. Built with **Java, Object-Oriented Programming and MySQL (JDBC)** as a second-year B.Tech CSE project.
+A console-based Java application for product feedback. Customers can register, sign in, view products, rate and comment on products, and search their feedback and administrator replies. Administrators can review, search, filter, delete and respond to feedback, and view product rating statistics. Application data is persisted in MySQL.
 
-> **Status:** In development. Sections marked *(planned)* describe the intended design and will be updated as each part is built and tested.
+## Features
 
----
+### Customers
+- Register an account and log in
+- Browse available products
+- Submit a 1-5 rating and comment
+- View and search their submitted feedback
+- Filter feedback by product or rating
+- Read administrator responses
 
-## 1. Overview
+### Administrators
+- Log in using an account granted the administrator role
+- View and search all customer feedback
+- Filter by product or rating
+- Delete feedback (its response is deleted automatically)
+- Respond to feedback (a later response replaces the previous one)
+- View feedback counts and average ratings per product
 
-Customers can register, log in, view products, and submit a rating (1 to 5) with a comment. Administrators can review all feedback, search and filter it, delete inappropriate entries, reply to customers, and view rating statistics. All data is stored permanently in a MySQL database.
+## Database design
 
-## 2. Features *(planned)*
+Run `sql/schema.sql` to create the `feedback_db` database and its tables. The schema uses InnoDB primary and foreign keys, a unique email, a unique response per feedback item, and a 1-5 rating constraint. Feedback and response text is limited to 500 characters to match the database columns.
 
-### Customer
-- Register and log in
-- View available products
-- Submit feedback (rating 1 to 5 and comment)
-- View own feedback
-- Search or filter own feedback
-- View administrator responses
+| Table | Why it exists | Relationships |
+|---|---|---|
+| `users` | Stores customer and administrator identity, unique email, role, and password hash. | One user can submit multiple feedback records. An administrator can author multiple responses. |
+| `products` | Stores the products available for review. | One product can have multiple feedback records. |
+| `feedback` | Stores each customer's rating, comment, and submission time. | Each row belongs to one user and one product. |
+| `responses` | Stores the administrator's response and response time. | Each row belongs to one feedback record and one administrator. A unique feedback key allows at most one current response. |
 
-### Administrator
-- Log in as admin
-- View all feedback
-- Search and filter by product or rating
-- Delete inappropriate feedback
-- Respond to feedback
-- View average ratings and feedback statistics
+Feedback references users and products with foreign keys. Deleting feedback cascades to its response, while users/products referenced by feedback cannot be accidentally deleted. Three example products are inserted by the schema script.
 
-## 3. Tech Stack
+## Setup (Windows)
 
-| Component | Technology |
-|---|---|
-| Language | Java |
-| Database | MySQL 8.0 |
-| Connectivity | JDBC with MySQL Connector/J |
-| Editor | Visual Studio Code |
-| OS / Terminal | Windows / PowerShell |
+Prerequisites: JDK 8 or newer, MySQL 8.0 running, and the MySQL Connector/J jar in `lib/`.
 
-## 4. OOP Concepts Used *(planned)*
+1. Create the database and tables from PowerShell:
 
-| Concept | Where it is applied |
-|---|---|
-| Encapsulation | Private fields with constructors, getters and setters in model classes |
-| Inheritance | `Customer` and `Admin` extend the parent `User` class |
-| Polymorphism | Overridden methods in `Customer` and `Admin` (for example, role-specific behaviour) |
-| Abstraction | Abstract class or interface defining common behaviour |
-| Composition | A `Feedback` object holds the `Customer` and `Product` it belongs to |
+   ```powershell
+   Get-Content sql\schema.sql | mysql -u root -p
+   ```
 
-## 5. Database Design *(planned)*
+2. Copy the example settings and edit the local credentials. `db.properties` is ignored by Git:
 
-Database name: `feedback_db`
+   ```powershell
+   Copy-Item db.properties.example db.properties
+   ```
 
-| Table | Purpose |
-|---|---|
-| `users` | Customers and administrators (password stored as a hash, role set by the system) |
-| `products` | Products that customers can review |
-| `feedback` | Rating and comment, linked to a user and a product |
-| `responses` | Admin replies, linked to a feedback record and an admin |
+   `DB_URL`, `DB_USER`, and `DB_PASSWORD` environment variables can be used instead; each overrides the corresponding property.
 
-Relationships are enforced with primary and foreign keys. The exact schema will be added here after the tables are created and verified.
+3. Compile and run from the repository root:
 
-## 6. Project Structure *(planned)*
+   ```powershell
+   javac -cp "lib\mysql-connector-j-26.7.0.jar" -sourcepath src -d out src\Main.java
+   java -cp "out;lib\mysql-connector-j-26.7.0.jar" Main
+   ```
 
-```
-CustomerFeedbackSystem/
-|-- src/
-|   |-- Main.java
-|   |-- model/       (User, Customer, Admin, Product, Feedback, Response)
-|   |-- database/    (DBConnection)
-|   |-- service/     (AuthService, FeedbackManager, ProductService, ResponseService)
-|-- lib/             (MySQL Connector/J jar)
-|-- README.md
-```
+4. Register a regular account. To create the initial administrator, promote the chosen account using a MySQL administrator account:
 
-## 7. Setup
+   ```sql
+   USE feedback_db;
+   UPDATE users SET role = 'ADMIN' WHERE email = 'admin@example.com';
+   ```
 
-### Prerequisites
-- JDK installed (`java -version` and `javac -version` should work)
-- MySQL Server 8.0 running
-- MySQL Connector/J jar placed in `lib/`
+   Then log in with that account. Public registration always creates a `CUSTOMER`; application input cannot assign administrator privileges.
 
-### Database
-1. Open the MySQL monitor: `mysql -u root -p`
-2. Create the database and tables using the SQL scripts (to be added).
+## Security and implementation
 
-### Database credentials
-Do **not** hardcode your password in source code. Credentials are read from a local config file or environment variables that are excluded from version control (see `.gitignore`).
+- Passwords are salted and hashed with PBKDF2-HMAC-SHA-256. Plaintext passwords are not stored.
+- SQL operations that use values from users use JDBC `PreparedStatement`s.
+- Administrator and customer service actions check the account's stored database role.
+- Feedback and responses have server-side validation as well as database constraints.
+- Database credentials are not committed; keep the local `db.properties` private.
 
-### Compile and run
-Commands will be added once the code is working.
-
-## 8. Security Notes
-- Passwords are stored as hashes, never as plaintext.
-- All SQL that uses user input goes through `PreparedStatement`.
-- Admin permissions are checked on the server side of the app, never trusted from user input.
-
-## 9. Progress
-
-- [x] MySQL 8.0 installed and service running
-- [ ] Verify Java and `javac`
-- [ ] Create `feedback_db` and tables
-- [ ] Connect Java to MySQL
-- [ ] OOP model classes
-- [ ] Registration and login
-- [ ] Products
-- [ ] Customer feedback
-- [ ] Admin features
-- [ ] Main menu
-- [ ] Testing
-- [ ] Project report and viva preparation
-
-## 10. Future Enhancements
-- Feedback editing by customers
-- Export reports to CSV
-- A GUI or web front end
-
-## 11. Author
-Melwin, B.Tech Computer Science Engineering, RIT Kottayam
+The source follows the requested layout: `src\model`, `src\database`, and `src\service`, with `src\Main.java` as the console entry point. `Customer` and `Admin` extend `User`; the service layer handles JDBC operations; and `Feedback` includes an optional `Response`.
