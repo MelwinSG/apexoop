@@ -426,7 +426,8 @@ public class Main extends JFrame {
         submitProduct = productCombo(false);
         JComboBox<Integer> rating = new JComboBox<>(new Integer[]{5, 4, 3, 2, 1});
         rating.setRenderer((list, value, index, selected, focus) ->
-                new JLabel(value == null ? "" : value + " / 5  " + stars(value)));
+                new JLabel(value == null ? "" : "<html>" + value + " / 5&nbsp;&nbsp;"
+                        + starMarkup(value) + "</html>"));
         feedbackComment = new JTextArea(7, 30);
         styleTextArea(feedbackComment);
         feedbackComment.setLineWrap(true);
@@ -577,7 +578,8 @@ public class Main extends JFrame {
         title.add(label((admin ? feedback.getCustomerName() + "  ·  " : "")
                 + "Feedback #" + feedback.getId() + "  ·  " + submitted, 12, MUTED, Font.PLAIN));
         top.add(title, BorderLayout.CENTER);
-        top.add(label(stars(feedback.getRating()) + "  " + feedback.getRating() + "/5",
+        top.add(label("<html>" + starMarkup(feedback.getRating()) + "&nbsp;&nbsp;"
+                        + feedback.getRating() + "/5</html>",
                 14, new Color(190, 127, 26), Font.BOLD), BorderLayout.EAST);
         card.add(top, BorderLayout.NORTH);
 
@@ -873,10 +875,14 @@ public class Main extends JFrame {
         return date == null ? "Date unavailable" : DATE_FORMAT.format(date);
     }
 
-    private String stars(int rating) {
+    private String starMarkup(int rating) {
         StringBuilder value = new StringBuilder();
         for (int i = 0; i < 5; i++) {
-            value.append(i < rating ? "★" : "☆");
+            value.append("<span style='color:")
+                    .append(i < rating ? "#E5A526" : "#C8D0DC")
+                    .append("'>")
+                    .append(i < rating ? "★" : "☆")
+                    .append("</span>");
         }
         return value.toString();
     }
