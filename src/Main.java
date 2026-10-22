@@ -1533,7 +1533,7 @@ public class Main extends JFrame {
                         updateDatabaseStatus(false);
                     }
                     String message = cause instanceof java.sql.SQLException
-                            ? "The database request could not be completed. Check the connection and try again."
+                            ? "this email already exists"
                             : cause == null || cause.getMessage() == null
                                     ? "The operation could not be completed." : cause.getMessage();
                     showError(message);
