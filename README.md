@@ -1,10 +1,8 @@
 # Customer Feedback System
 
-A Java Swing desktop application for product feedback, backed by MySQL-compatible TiDB Cloud through MySQL Connector/J. Customers can register, sign in, browse products, submit ratings and comments, and follow administrator responses. Administrators can search and filter customer feedback, respond to or delete feedback, and review product statistics.
+A Java Swing desktop application for product feedback, backed by MySQL-compatible TiDB Cloud through MySQL Connector/J. Customers can register, sign in, browse products, submit ratings and comments, and follow administrator responses. Administrators can search and filter customer feedback, respond to or delete feedback if they are inappropriate, and review product statistics.
 
 The desktop UI includes a database-backed dashboard, sortable feedback tables, date/rating/product filters, analytics, CSV export, connection status, and account settings. It uses only Swing and Java 8 APIs; no extra UI/chart dependency is required.
-
-## Features
 
 ### Customers
 - Register an account and log in
@@ -33,7 +31,6 @@ Run `sql/schema.sql` to create the `feedback_db` database and its tables. The sc
 | `feedback` | Stores each customer's rating, comment, and submission time. | Each row belongs to one user and one product. |
 | `responses` | Stores the administrator's response and response time. | Each row belongs to one feedback record and one administrator. A unique feedback key allows at most one current response. |
 
-Feedback references users and products with foreign keys. Deleting feedback cascades to its response, while users/products referenced by feedback cannot be accidentally deleted. Three example products are inserted by the schema script.
 
 The existing schema does not store a feedback category or a separate email per feedback record. The interface therefore displays the linked product as the feedback category and uses the signed-in customer's name/email. Sentiment is derived from the existing rating: 4–5 positive, 3 neutral, and 1–2 negative. No schema change is needed.
 
