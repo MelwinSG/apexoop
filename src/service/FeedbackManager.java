@@ -5,6 +5,7 @@ import model.Admin;
 import model.Customer;
 import model.Feedback;
 import model.Response;
+import model.User;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -79,8 +80,8 @@ public class FeedbackManager {
         return queryFeedback(null, "", null, null, null, null, null, requireLimit(limit));
     }
 
-    public List<Feedback> listCommunityFeedback(Customer customer) throws SQLException {
-        AuthService.requireCustomer(customer);
+    public List<Feedback> listCommunityFeedback(User user) throws SQLException {
+        AuthService.requireRegisteredUser(user);
         return queryFeedback(null, "", null, null, null, null, null, null);
     }
 

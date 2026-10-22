@@ -1,10 +1,10 @@
 package service;
 
 import database.FeedbackVoteDAO;
-import model.Customer;
 import model.Feedback;
 import model.FeedbackVote;
 import model.FeedbackVote.VoteType;
+import model.User;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -51,19 +51,19 @@ public class FeedbackVerificationService {
         return minimumCredibilityScore;
     }
 
-    public CommunityFeedbackLists listCommunityFeedback(Customer customer) throws SQLException {
+    public CommunityFeedbackLists listCommunityFeedback(User user) throws SQLException {
         List<Feedback> verified = new ArrayList<>();
         List<Feedback> pending = new ArrayList<>();
-        for (Feedback feedback : feedbackManager.listCommunityFeedback(customer)) {
+        for (Feedback feedback : feedbackManager.listCommunityFeedback(user)) {
             double score = calculateCredibility(feedback.getHelpfulVotes(), feedback.getNotHelpfulVotes());
             (meetsMinimumCredibility(score) ? verified : pending).add(feedback);
         }
         return new CommunityFeedbackLists(verified, pending);
     }
 
-    public void castVote(Customer customer, long feedbackId, VoteType voteType) throws SQLException {
-        AuthService.requireCustomer(customer);
-        FeedbackVote vote = new FeedbackVote(feedbackId, customer.getId(), voteType);
+    public void castVote(User user, long feedbackId, VoteType voteType) throws SQLException {
+        AuthService.requireRegisteredUser(user);
+        FeedbackVote vote = new FeedbackVote(feedbackId, user.getId(), voteType);
         feedbackVoteDAO.saveOrUpdate(vote);
     }
 

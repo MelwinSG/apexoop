@@ -89,15 +89,32 @@ public class AuthService {
         requireRole(customer == null ? 0 : customer.getId(), "CUSTOMER");
     }
 
+    public static void requireRegisteredUser(User user) throws SQLException {
+        String role = accountRole(user == null ? 0 : user.getId());
+        if (!"CUSTOMER".equals(role) && !"ADMIN".equals(role)) {
+            throw new IllegalArgumentException("A registered account is required.");
+        }
+    }
+
     private static void requireRole(long userId, String requiredRole) throws SQLException {
+        if (!requiredRole.equals(accountRole(userId))) {
+            throw new IllegalArgumentException(requiredRole + " account access is required.");
+        }
+    }
+
+    private static String accountRole(long userId) throws SQLException {
+        if (userId <= 0) {
+            throw new IllegalArgumentException("A signed-in account is required.");
+        }
         String sql = "SELECT role FROM users WHERE user_id = ?";
         try (Connection connection = DBConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, userId);
             try (ResultSet result = statement.executeQuery()) {
-                if (!result.next() || !requiredRole.equals(result.getString("role"))) {
-                    throw new IllegalArgumentException(requiredRole + " account access is required.");
+                if (!result.next()) {
+                    throw new IllegalArgumentException("The signed-in account was not found.");
                 }
+                return result.getString("role");
             }
         }
     }

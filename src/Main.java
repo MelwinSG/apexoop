@@ -355,8 +355,8 @@ public class Main extends JFrame {
             pageCards.add(buildProductsPage(), "products");
             pageCards.add(buildSubmitPage(), "submit");
             pageCards.add(buildFeedbackPage(false), "feedback");
-            pageCards.add(buildCommunityFeedbackPage(), "community");
         }
+        pageCards.add(buildCommunityFeedbackPage(), "community");
         pageCards.add(buildAnalyticsPage(), "analytics");
         pageCards.add(buildSettingsPage(), "settings");
         content.add(pageCards, BorderLayout.CENTER);
@@ -400,9 +400,9 @@ public class Main extends JFrame {
             addNavigation(sidebar, "Browse Products", "products", "products");
             addNavigation(sidebar, "Add Feedback", "submit", "add");
             addNavigation(sidebar, "My Feedback", "feedback", "feedback");
-            addNavigation(sidebar, "Community Feedback", "community", "feedback");
             addNavigation(sidebar, "Search Feedback", "search", "search");
         }
+        addNavigation(sidebar, "Community Feedback", "community", "feedback");
         addNavigation(sidebar, "Analytics & Reports", "analytics", "analytics");
         addNavigation(sidebar, "Settings", "settings", "settings");
 
@@ -876,7 +876,7 @@ public class Main extends JFrame {
         intro.setLayout(new BoxLayout(intro, BoxLayout.Y_AXIS));
         intro.add(label("Help the community find reliable feedback", 16, TEXT, Font.BOLD));
         intro.add(Box.createVerticalStrut(6));
-        intro.add(label("Your signed-in customer account can vote once per feedback entry. "
+        intro.add(label("Every signed-in account can vote once per feedback entry. "
                 + "Votes can be changed at any time.", 12, MUTED, Font.PLAIN));
         intro.add(Box.createVerticalStrut(4));
         intro.add(label("Verified feedback requires at least "
@@ -899,13 +899,12 @@ public class Main extends JFrame {
     }
 
     private void loadCommunityFeedback() {
-        if (!(currentUser instanceof Customer) || verifiedFeedbackHolder == null
-                || pendingFeedbackHolder == null) {
+        if (currentUser == null || verifiedFeedbackHolder == null || pendingFeedbackHolder == null) {
             return;
         }
+        User voter = currentUser;
         runTask("Loading community feedback…", () -> {
-            Customer customer = (Customer) currentUser;
-            return feedbackVerificationService.listCommunityFeedback(customer);
+            return feedbackVerificationService.listCommunityFeedback(voter);
         }, snapshot -> {
             renderCommunityFeedback(verifiedFeedbackHolder, snapshot.getVerified(), true);
             renderCommunityFeedback(pendingFeedbackHolder, snapshot.getPending(), false);
@@ -938,12 +937,13 @@ public class Main extends JFrame {
     }
 
     private void castCommunityVote(Feedback feedback, VoteType voteType) {
-        if (!(currentUser instanceof Customer)) {
-            showError("Sign in with a customer account to vote.");
+        if (currentUser == null) {
+            showError("Sign in with a registered account to vote.");
             return;
         }
+        User voter = currentUser;
         runTask("Saving your vote…", () -> {
-            feedbackVerificationService.castVote((Customer) currentUser, feedback.getId(), voteType);
+            feedbackVerificationService.castVote(voter, feedback.getId(), voteType);
             return null;
         }, ignored -> {
             status("Your vote was saved; credibility and verification lists are refreshing.");

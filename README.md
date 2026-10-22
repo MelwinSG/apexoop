@@ -4,7 +4,7 @@ A Java Swing desktop application for product feedback, backed by MySQL-compatibl
 
 The desktop UI includes a database-backed dashboard, sortable feedback tables, date/rating/product filters, analytics, CSV export, connection status, and account settings. It uses only Swing and Java 8 APIs; no extra UI/chart dependency is required.
 
-Customers can also evaluate existing feedback from **Community Feedback**. Each customer account has one vote per feedback item and may change that vote. The default verified threshold is 60%; feedback with no votes remains pending at 0%.
+Signed-in customer and administrator accounts can evaluate any existing feedback from **Community Feedback**, whether it is pending or already verified. Each account has one vote per feedback item and may change that vote. The default verified threshold is 60%; feedback with no votes remains pending at 0%.
 
 ### Customers
 - Register an account and log in
@@ -115,7 +115,7 @@ Prerequisites: JDK 8 or newer, the MySQL Connector/J jar in `lib/`, and either a
 - Passwords are salted and hashed with PBKDF2-HMAC-SHA-256. Plaintext passwords are not stored.
 - SQL operations that use values from users use JDBC `PreparedStatement`s.
 - Administrator and customer service actions check the account's stored database role.
-- Feedback votes use the authenticated customer's database `user_id`, a unique database constraint prevents duplicate independent votes, and an upsert lets the customer change their vote. A manually typed name is not used as identity.
+- Feedback votes use the authenticated registered account's database `user_id`, a unique database constraint prevents duplicate independent votes, and an upsert lets that account change its vote. Both verified and pending feedback remain votable. A manually typed name is not used as identity.
 - `FeedbackVoteDAO` owns the transactional vote write, `FeedbackVerificationService` owns score and threshold rules, `FeedbackManager` retrieves vote totals, and the Swing community page handles display and refresh.
 - Feedback and responses have server-side validation as well as database constraints.
 - Database credentials are not committed; keep the local `db.properties` private.
