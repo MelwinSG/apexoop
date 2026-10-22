@@ -1,11 +1,13 @@
 import model.Admin;
 import model.Customer;
 import model.Feedback;
+import model.FeedbackVote.VoteType;
 import model.Product;
 import model.User;
 import service.AuthService;
 import service.DashboardService;
 import service.FeedbackManager;
+import service.FeedbackVerificationService;
 import service.ProductService;
 import service.ResponseService;
 import database.DBConnection;
@@ -86,6 +88,7 @@ public class Main extends JFrame {
     private final ProductService productService = new ProductService();
     private final DashboardService dashboardService = new DashboardService();
     private final FeedbackManager feedbackManager = new FeedbackManager();
+    private final FeedbackVerificationService feedbackVerificationService = new FeedbackVerificationService();
     private final ResponseService responseService = new ResponseService();
 
     private User currentUser;
@@ -113,6 +116,8 @@ public class Main extends JFrame {
     private DefaultTableModel recentFeedbackModel;
     private JPanel recentTableHolder;
     private JPanel feedbackTableHolder;
+    private JPanel verifiedFeedbackHolder;
+    private JPanel pendingFeedbackHolder;
     private JPanel analyticsRatingsPanel;
     private JPanel analyticsTrendPanel;
     private DefaultTableModel analyticsProductModel;
@@ -350,6 +355,7 @@ public class Main extends JFrame {
             pageCards.add(buildProductsPage(), "products");
             pageCards.add(buildSubmitPage(), "submit");
             pageCards.add(buildFeedbackPage(false), "feedback");
+            pageCards.add(buildCommunityFeedbackPage(), "community");
         }
         pageCards.add(buildAnalyticsPage(), "analytics");
         pageCards.add(buildSettingsPage(), "settings");
@@ -394,6 +400,7 @@ public class Main extends JFrame {
             addNavigation(sidebar, "Browse Products", "products", "products");
             addNavigation(sidebar, "Add Feedback", "submit", "add");
             addNavigation(sidebar, "My Feedback", "feedback", "feedback");
+            addNavigation(sidebar, "Community Feedback", "community", "feedback");
             addNavigation(sidebar, "Search Feedback", "search", "search");
         }
         addNavigation(sidebar, "Analytics & Reports", "analytics", "analytics");
@@ -862,6 +869,88 @@ public class Main extends JFrame {
         return page;
     }
 
+    private JPanel buildCommunityFeedbackPage() {
+        JPanel page = new JPanel(new BorderLayout(0, 14));
+        page.setOpaque(false);
+        JPanel intro = cardPanel();
+        intro.setLayout(new BoxLayout(intro, BoxLayout.Y_AXIS));
+        intro.add(label("Help the community find reliable feedback", 16, TEXT, Font.BOLD));
+        intro.add(Box.createVerticalStrut(6));
+        intro.add(label("Your signed-in customer account can vote once per feedback entry. "
+                + "Votes can be changed at any time.", 12, MUTED, Font.PLAIN));
+        intro.add(Box.createVerticalStrut(4));
+        intro.add(label("Verified feedback requires at least "
+                + String.format(java.util.Locale.ROOT, "%.1f%%",
+                        feedbackVerificationService.getMinimumCredibilityScore()) + " credibility.",
+                12, MUTED, Font.PLAIN));
+        page.add(intro, BorderLayout.NORTH);
+
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        verifiedFeedbackHolder = new JPanel(new BorderLayout());
+        verifiedFeedbackHolder.setOpaque(false);
+        pendingFeedbackHolder = new JPanel(new BorderLayout());
+        pendingFeedbackHolder.setOpaque(false);
+        tabs.addTab("Verified Feedback", verifiedFeedbackHolder);
+        tabs.addTab("Pending Verification", pendingFeedbackHolder);
+        page.add(tabs, BorderLayout.CENTER);
+        loadCommunityFeedback();
+        return page;
+    }
+
+    private void loadCommunityFeedback() {
+        if (!(currentUser instanceof Customer) || verifiedFeedbackHolder == null
+                || pendingFeedbackHolder == null) {
+            return;
+        }
+        runTask("Loading community feedback…", () -> {
+            Customer customer = (Customer) currentUser;
+            return feedbackVerificationService.listCommunityFeedback(customer);
+        }, snapshot -> {
+            renderCommunityFeedback(verifiedFeedbackHolder, snapshot.getVerified(), true);
+            renderCommunityFeedback(pendingFeedbackHolder, snapshot.getPending(), false);
+            status("Verified: " + snapshot.getVerified().size()
+                    + " · Pending: " + snapshot.getPending().size());
+        });
+    }
+
+    private void renderCommunityFeedback(JPanel holder, List<Feedback> feedback, boolean verified) {
+        holder.removeAll();
+        if (feedback.isEmpty()) {
+            holder.add(emptyState(verified
+                    ? "No feedback has reached the minimum credibility score yet."
+                    : "No feedback is currently pending verification."), BorderLayout.CENTER);
+        } else {
+            JPanel cards = new JPanel();
+            cards.setOpaque(false);
+            cards.setBorder(BorderFactory.createEmptyBorder(14, 4, 14, 4));
+            cards.setLayout(new BoxLayout(cards, BoxLayout.Y_AXIS));
+            for (Feedback item : feedback) {
+                JPanel card = feedbackCard(item, false, true);
+                card.setAlignmentX(Component.LEFT_ALIGNMENT);
+                cards.add(card);
+                cards.add(Box.createVerticalStrut(12));
+            }
+            holder.add(scrollPane(cards), BorderLayout.CENTER);
+        }
+        holder.revalidate();
+        holder.repaint();
+    }
+
+    private void castCommunityVote(Feedback feedback, VoteType voteType) {
+        if (!(currentUser instanceof Customer)) {
+            showError("Sign in with a customer account to vote.");
+            return;
+        }
+        runTask("Saving your vote…", () -> {
+            feedbackVerificationService.castVote((Customer) currentUser, feedback.getId(), voteType);
+            return null;
+        }, ignored -> {
+            status("Your vote was saved; credibility and verification lists are refreshing.");
+            loadCommunityFeedback();
+        });
+    }
+
     private DefaultTableModel feedbackTableModel() {
         return new DefaultTableModel(
                 new Object[]{"ID", "Customer", "Product", "Rating", "Sentiment", "Submitted", "Response"}, 0) {
@@ -1253,6 +1342,9 @@ public class Main extends JFrame {
                     loadFeedback(currentUser instanceof Admin);
                 }
                 break;
+            case "community":
+                loadCommunityFeedback();
+                break;
             case "analytics":
                 refreshAnalytics();
                 break;
@@ -1333,7 +1425,7 @@ public class Main extends JFrame {
         }
     }
 
-    private JPanel feedbackCard(Feedback feedback, boolean admin) {
+    private JPanel feedbackCard(Feedback feedback, boolean admin, boolean community) {
         JPanel card = cardPanel();
         card.setLayout(new BorderLayout(0, 12));
         JPanel top = new JPanel(new BorderLayout(12, 0));
@@ -1344,7 +1436,7 @@ public class Main extends JFrame {
         title.add(label(feedback.getProductName(), 16, TEXT, Font.BOLD));
         String submitted = formatDate(feedback.getCreatedAt());
         title.add(Box.createVerticalStrut(5));
-        title.add(label((admin ? feedback.getCustomerName() + "  ·  " : "")
+        title.add(label((admin || community ? feedback.getCustomerName() + "  ·  " : "")
                 + "Feedback #" + feedback.getId() + "  ·  " + submitted, 12, MUTED, Font.PLAIN));
         top.add(title, BorderLayout.CENTER);
         top.add(label("<html>" + starMarkup(feedback.getRating()) + "&nbsp;&nbsp;"
@@ -1363,6 +1455,16 @@ public class Main extends JFrame {
         comment.setBackground(new Color(250, 247, 241));
         comment.setBorder(BorderFactory.createEmptyBorder(11, 12, 11, 12));
         content.add(comment);
+        if (community) {
+            double credibility = feedbackVerificationService.calculateCredibility(
+                    feedback.getHelpfulVotes(), feedback.getNotHelpfulVotes());
+            content.add(Box.createVerticalStrut(8));
+            content.add(label("Helpful: " + feedback.getHelpfulVotes()
+                    + "  ·  Not helpful: " + feedback.getNotHelpfulVotes()
+                    + "  ·  Credibility: "
+                    + String.format(java.util.Locale.ROOT, "%.1f%%", credibility),
+                    12, MUTED, Font.BOLD));
+        }
         if (feedback.getResponse() != null) {
             JPanel response = new JPanel();
             response.setLayout(new BoxLayout(response, BoxLayout.Y_AXIS));
@@ -1380,7 +1482,17 @@ public class Main extends JFrame {
         }
         card.add(content, BorderLayout.CENTER);
 
-        if (admin) {
+        if (community) {
+            JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+            actions.setOpaque(false);
+            JButton helpful = secondaryButton("Helpful");
+            JButton notHelpful = secondaryButton("Not Helpful");
+            helpful.addActionListener(event -> castCommunityVote(feedback, VoteType.HELPFUL));
+            notHelpful.addActionListener(event -> castCommunityVote(feedback, VoteType.NOT_HELPFUL));
+            actions.add(helpful);
+            actions.add(notHelpful);
+            card.add(actions, BorderLayout.SOUTH);
+        } else if (admin) {
             JPanel actions = new JPanel(new GridLayout(1, 2, 8, 0));
             actions.setOpaque(false);
             JButton respond = secondaryButton(feedback.getResponse() == null ? "Respond" : "Edit response");
@@ -1462,6 +1574,10 @@ public class Main extends JFrame {
                     loadFeedback(currentUser instanceof Admin);
                 }
                 break;
+            case "community":
+                setPageHeading("Community feedback", "Evaluate feedback and help verify customer experiences.");
+                loadCommunityFeedback();
+                break;
             case "search":
                 setPageHeading("Search feedback", "Find records by customer, product, rating, or date.");
                 if (feedbackSearch != null) {
@@ -1532,10 +1648,15 @@ public class Main extends JFrame {
                     if (isConnectionFailure(cause)) {
                         updateDatabaseStatus(false);
                     }
-                    String message = cause instanceof java.sql.SQLException
-                            ? "this email already exists"
-                            : cause == null || cause.getMessage() == null
-                                    ? "The operation could not be completed." : cause.getMessage();
+                    String message;
+                    if (cause instanceof IllegalArgumentException) {
+                        message = cause.getMessage();
+                    } else if (cause instanceof java.sql.SQLException) {
+                        message = "A database operation failed. Please verify the database setup and try again.";
+                    } else {
+                        message = cause == null || cause.getMessage() == null
+                                ? "The operation could not be completed." : cause.getMessage();
+                    }
                     showError(message);
                 }
             }

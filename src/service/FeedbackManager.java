@@ -79,6 +79,11 @@ public class FeedbackManager {
         return queryFeedback(null, "", null, null, null, null, null, requireLimit(limit));
     }
 
+    public List<Feedback> listCommunityFeedback(Customer customer) throws SQLException {
+        AuthService.requireCustomer(customer);
+        return queryFeedback(null, "", null, null, null, null, null, null);
+    }
+
     public void deleteFeedback(Admin admin, long feedbackId) throws SQLException {
         AuthService.requireAdmin(admin);
         try (Connection connection = DBConnection.getConnection()) {
@@ -113,13 +118,20 @@ public class FeedbackManager {
                                          LocalDate fromDate, LocalDate toDate, Integer limit)
             throws SQLException {
         StringBuilder sql = new StringBuilder(
-                        "SELECT f.feedback_id, f.rating, f.comment_text, f.created_at, u.full_name AS customer_name, "
-                                + "p.product_name, r.response_id, r.response_text, "
-                                + "r.created_at AS responded_at, a.full_name AS admin_name "
+                        "SELECT f.feedback_id, f.rating, f.comment_text, f.created_at, "
+                        + "COALESCE(v.helpful_votes, 0) AS helpful_votes, "
+                        + "COALESCE(v.not_helpful_votes, 0) AS not_helpful_votes, "
+                        + "u.full_name AS customer_name, "
+                        + "p.product_name, r.response_id, r.response_text, "
+                        + "r.created_at AS responded_at, a.full_name AS admin_name "
                         + "FROM feedback f JOIN users u ON u.user_id = f.user_id "
-                                + "JOIN products p ON p.product_id = f.product_id "
+                        + "JOIN products p ON p.product_id = f.product_id "
+                        + "LEFT JOIN (SELECT feedback_id, "
+                        + "SUM(CASE WHEN vote_type = 'HELPFUL' THEN 1 ELSE 0 END) AS helpful_votes, "
+                        + "SUM(CASE WHEN vote_type = 'NOT_HELPFUL' THEN 1 ELSE 0 END) AS not_helpful_votes "
+                        + "FROM feedback_votes GROUP BY feedback_id) v ON v.feedback_id = f.feedback_id "
                         + "LEFT JOIN responses r ON r.feedback_id = f.feedback_id "
-                                + "LEFT JOIN users a ON a.user_id = r.admin_id WHERE 1 = 1");
+                        + "LEFT JOIN users a ON a.user_id = r.admin_id WHERE 1 = 1");
         List<Object> parameters = new ArrayList<>();
         if (customerId != null) {
             sql.append(" AND f.user_id = ?");
@@ -194,7 +206,8 @@ public class FeedbackManager {
                     Timestamp createdAt = result.getTimestamp("created_at");
                     feedbackList.add(new Feedback(result.getLong("feedback_id"), result.getString("customer_name"),
                             result.getString("product_name"), result.getInt("rating"), result.getString("comment_text"),
-                            createdAt == null ? null : createdAt.toLocalDateTime(), response));
+                            createdAt == null ? null : createdAt.toLocalDateTime(), response,
+                            result.getLong("helpful_votes"), result.getLong("not_helpful_votes")));
                 }
             }
         }
