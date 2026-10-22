@@ -1649,7 +1649,9 @@ public class Main extends JFrame {
                         updateDatabaseStatus(false);
                     }
                     String message;
-                    if (cause instanceof IllegalArgumentException) {
+                    if (isDuplicateEmail(cause)) {
+                        message = "An account with this email already exists.";
+                    } else if (cause instanceof IllegalArgumentException) {
                         message = cause.getMessage();
                     } else if (cause instanceof java.sql.SQLException) {
                         message = "A database operation failed. Please verify the database setup and try again.";
@@ -1661,6 +1663,21 @@ public class Main extends JFrame {
                 }
             }
         }.execute();
+    }
+
+    private boolean isDuplicateEmail(Throwable cause) {
+        if (!(cause instanceof java.sql.SQLException)) {
+            return false;
+        }
+        for (java.sql.SQLException exception = (java.sql.SQLException) cause;
+                exception != null; exception = exception.getNextException()) {
+            String message = exception.getMessage();
+            if (exception.getErrorCode() == 1062 && message != null
+                    && message.toLowerCase(java.util.Locale.ROOT).contains("uq_users_email")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void status(String message) {
